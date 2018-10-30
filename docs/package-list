@@ -1,0 +1,14 @@
+com.doerit.doerdb
+com.doerit.doerdb.cli
+com.doerit.doerdb.db
+com.doerit.doerdb.db.jdbc
+com.doerit.doerdb.db.metadata
+com.doerit.doerdb.db.queries
+com.doerit.doerdb.db.queries.builders
+com.doerit.doerdb.db.queries.executors
+com.doerit.doerdb.db.templates
+com.doerit.doerdb.db.types
+com.doerit.doerdb.exceptions
+com.doerit.doerdb.synchronizer
+com.doerit.doerdb.synchronizer.mappers
+com.doerit.doerdb.util
