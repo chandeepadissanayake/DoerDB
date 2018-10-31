@@ -1,13 +1,10 @@
 package com.doerit.doerdb.db;
 
-import com.doerit.doerdb.db.queries.BasicQuery;
-
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Map;
 
 public class MySQL {
 

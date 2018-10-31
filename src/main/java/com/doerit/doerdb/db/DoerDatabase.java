@@ -2,13 +2,13 @@ package com.doerit.doerdb.db;
 
 import com.doerit.doerdb.db.jdbc.JDBCConstants;
 import com.doerit.doerdb.db.metadata.DoerDBMetaTable;
-import com.doerit.doerdb.db.metadata.DoerDBSyncTable;
+import com.doerit.doerdb.db.metadata.DoerDBSyncDataTable;
+import com.doerit.doerdb.db.metadata.DoerDBSyncStatusTable;
 import com.doerit.doerdb.db.queries.executors.QueryExecutor;
 import com.doerit.doerdb.exceptions.ExceptionCodes;
 import com.doerit.doerdb.exceptions.InitializationFailureException;
 import com.doerit.doerdb.exceptions.NotFoundException;
 import com.doerit.doerdb.db.types.DatabaseType;
-import com.doerit.doerdb.synchronizer.DoerDBChange;
 import com.doerit.doerdb.util.DatabaseValidator;
 
 import java.sql.*;
@@ -26,7 +26,8 @@ public class DoerDatabase {
     private final Connection hostConnection;
     private final DoerDBMetaTable doerDBMetaTable;
     private final QueryExecutor queryExecutor;
-    private DoerDBSyncTable doerDBSyncTable = null;
+    private DoerDBSyncDataTable doerDBSyncDataTable = null;
+    private DoerDBSyncStatusTable doerDBSyncStatusTable = null;
 
     private boolean initSuccess;
 
@@ -59,7 +60,10 @@ public class DoerDatabase {
         this.doerDBMetaTable = new DoerDBMetaTable(this);
         this.queryExecutor = new QueryExecutor(this);
         if (dbType == DatabaseType.LOCAL) {
-            this.doerDBSyncTable = new DoerDBSyncTable(this);
+            this.doerDBSyncDataTable = new DoerDBSyncDataTable(this);
+        }
+        else if (dbType == DatabaseType.REMOTE) {
+            this.doerDBSyncStatusTable = new DoerDBSyncStatusTable(this);
         }
     }
 
@@ -115,12 +119,21 @@ public class DoerDatabase {
     }
 
     /**
-     * Used to obtain Sync Table associated with the database.
-     * This would return null if the instance of DoerDatabase is a type of DatabaseType.LOCAL(The local database).
-     * @return DoerDbSyncTable The Instance of DoerDBSyncTable associated with the DoerDatabase.
+     * Used to obtain Sync Data Table associated with the database.
+     * This would return null if the instance of DoerDatabase is a type of DatabaseType.REMOTE(The remote database).
+     * @return DoerDBSyncDataTable The Instance of DoerDBSyncDataTable associated with the DoerDatabase.
      */
-    public DoerDBSyncTable getSyncTable() {
-        return doerDBSyncTable;
+    public DoerDBSyncDataTable getSyncDataTable() {
+        return doerDBSyncDataTable;
+    }
+
+    /**
+     * Used to obtain Sync Status Table associated with the database.
+     * This would return null if the instance of DoerDatabase is a type of DatabaseType.LOCAL(The local database).
+     * @return DoerDBSyncStatusTable The Instance of DoerDBSyncStatusTable associated with the DoerDatabase.
+     */
+    public DoerDBSyncStatusTable getSyncStatusTable() {
+        return doerDBSyncStatusTable;
     }
 
     /**

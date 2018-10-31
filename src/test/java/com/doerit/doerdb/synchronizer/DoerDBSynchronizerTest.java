@@ -4,13 +4,12 @@ import com.doerit.doerdb.DBCredentialWrapper;
 import com.doerit.doerdb.DoerDB;
 import com.doerit.doerdb.exceptions.InitializationFailureException;
 import com.doerit.doerdb.exceptions.NotFoundException;
+import com.doerit.doerdb.exceptions.SynchronizeException;
 import com.doerit.doerdb.synchronizer.mappers.DatabaseMapper;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.sql.SQLException;
-
-import static org.junit.Assert.*;
 
 public class DoerDBSynchronizerTest {
 
@@ -46,7 +45,7 @@ public class DoerDBSynchronizerTest {
             doerDBSynchronizer.synchronizeChanges();
         }
 
-        catch (SQLException | InitializationFailureException e) {
+        catch (SQLException | InitializationFailureException | SynchronizeException e) {
             e.printStackTrace();
         }
     }
@@ -62,7 +61,7 @@ public class DoerDBSynchronizerTest {
             doerDBSynchronizer.synchronizeChanges();
         }
 
-        catch (SQLException | InitializationFailureException e) {
+        catch (SQLException | InitializationFailureException | SynchronizeException e) {
             e.printStackTrace();
         }
     }

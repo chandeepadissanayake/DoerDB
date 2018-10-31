@@ -4,7 +4,6 @@ import com.doerit.doerdb.db.DoerDatabase;
 import com.doerit.doerdb.db.metadata.DoerDBMetaTable;
 import com.doerit.doerdb.db.queries.BasicQuery;
 import com.doerit.doerdb.exceptions.InitializationFailureException;
-import com.doerit.doerdb.synchronizer.mappers.TableMapper;
 import org.json.JSONObject;
 
 import java.sql.SQLException;
@@ -72,6 +71,7 @@ public class DoerDBChange implements Comparable<DoerDBChange> {
 
     /**
      * Overridden method to compare two DoerDBChanges.
+     * <b>Note: This comparison should only be used during synchronization.</b>
      * Compares by using the timestamps of the BasicQueries.
      * @param doerDBChange The other DoerDBChange instance to compare with.
      * @return int The position after comparison.

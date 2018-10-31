@@ -3,11 +3,14 @@ package com.doerit.doerdb.synchronizer;
 import com.doerit.doerdb.DoerDB;
 import com.doerit.doerdb.db.DoerDatabase;
 import com.doerit.doerdb.db.metadata.DoerDBMetaTable;
-import com.doerit.doerdb.db.metadata.DoerDBSyncTable;
+import com.doerit.doerdb.db.metadata.DoerDBSyncDataTable;
+import com.doerit.doerdb.db.metadata.DoerDBSyncStatusTable;
 import com.doerit.doerdb.db.queries.BasicQuery;
 import com.doerit.doerdb.db.queries.builders.QueryBuilder;
 import com.doerit.doerdb.db.queries.executors.DoerDBChangeExecutor;
+import com.doerit.doerdb.exceptions.ExceptionCodes;
 import com.doerit.doerdb.exceptions.InitializationFailureException;
+import com.doerit.doerdb.exceptions.SynchronizeException;
 import com.doerit.doerdb.synchronizer.mappers.DatabaseMapper;
 
 import java.sql.SQLException;
@@ -60,15 +63,15 @@ public class DoerDBSynchronizer {
     }
 
     /**
-     * Method to parse the changes in Meta Table as Queries after the given threshold timestamp.
+     * Method to parse the changes in Meta Table as Queries after the given threshold ID.
      * @param doerDBMetaTable DoerDBMetaTable The Meta Table where queries are to be parsed.
-     * @param thresholdTimestamp Date The threshold timestamp to be used to obtain the executed queries.
+     * @param thresholdID Date The threshold timestamp to be used to obtain the executed queries.
      * @return List of BasicQuery implementations for each change in the meta table.
      * @throws SQLException If any exception is thrown during the execution of MySQL query.
      * @throws InitializationFailureException If any exception is thrown during the initialization of DoerDatabase.
      */
-    private List<BasicQuery> getChangesAsQueries(DoerDBMetaTable doerDBMetaTable, Date thresholdTimestamp) throws SQLException, InitializationFailureException {
-        List<Map<String, Object>> resultsChanges = doerDBMetaTable.getQueryRecordsInfoAfter(thresholdTimestamp);
+    private List<BasicQuery> getChangesAsQueries(DoerDBMetaTable doerDBMetaTable, int thresholdID) throws SQLException, InitializationFailureException {
+        List<Map<String, Object>> resultsChanges = doerDBMetaTable.getQueryRecordsInfoAfterID(thresholdID);
         List<BasicQuery> changes = new ArrayList<>();
         for (Map<String, Object> resultsChange : resultsChanges) {
             QueryBuilder changeQueryBuilder = new QueryBuilder(resultsChange);
@@ -82,29 +85,29 @@ public class DoerDBSynchronizer {
     }
 
     /**
-     * Used to obtain the changes recorded in the local Meta Table after the given timestamp.
-     * @param thresholdTimestamp Date The threshold timestamp to be used to obtain the executed queries.
+     * Used to obtain the changes recorded in the local Meta Table after the given ID.
+     * @param thresholdID Date The threshold timestamp to be used to obtain the executed queries.
      * @return List of BasicQuery implementations for each change in the meta table.
      * @throws SQLException If any exception is thrown during the execution of MySQL query.
      * @throws InitializationFailureException If any exception is thrown during the initialization of DoerDatabase.
      */
-    private List<BasicQuery> getLocalChangesAsQueries(Date thresholdTimestamp) throws SQLException, InitializationFailureException {
+    private List<BasicQuery> getLocalChangesAsQueries(int thresholdID) throws SQLException, InitializationFailureException {
         DoerDatabase doerLocalDB = doerDB.getLocalDatabase();
         DoerDBMetaTable doerDBMetaTable = doerLocalDB.getMetaTable();
-        return getChangesAsQueries(doerDBMetaTable, thresholdTimestamp);
+        return this.getChangesAsQueries(doerDBMetaTable, thresholdID);
     }
 
     /**
-     * Used to obtain the changes recorded in the remote Meta Table after the given timestamp.
-     * @param thresholdTimestamp Date The threshold timestamp to be used to obtain the executed queries.
+     * Used to obtain the changes recorded in the remote Meta Table after the given ID.
+     * @param thresholdID Date The threshold timestamp to be used to obtain the executed queries.
      * @return List of BasicQuery implementations for each change in the meta table.
      * @throws SQLException If any exception is thrown during the execution of MySQL query.
      * @throws InitializationFailureException If any exception is thrown during the initialization of DoerDatabase.
      */
-    private List<BasicQuery> getRemoteChangesAsQueries(Date thresholdTimestamp) throws SQLException, InitializationFailureException {
+    private List<BasicQuery> getRemoteChangesAsQueries(int thresholdID) throws SQLException, InitializationFailureException {
         DoerDatabase doerRemoteDB = doerDB.getRemoteDatabase();
         DoerDBMetaTable doerDBMetaTable = doerRemoteDB.getMetaTable();
-        return getChangesAsQueries(doerDBMetaTable, thresholdTimestamp);
+        return this.getChangesAsQueries(doerDBMetaTable, thresholdID);
     }
 
     /**
@@ -125,37 +128,45 @@ public class DoerDBSynchronizer {
 
     /**
      * Used to obtain the set of changes done in local database as a List of DoerDBChange instances.
-     * @param thresholdTimestamp Date The threshold timestamp to be used to obtain the executed queries.
-     * @return List of DoerDBChange instances representing all the changes done to the local database in the given time interval(w.r.t the thresholdTimestamp and Now).
+     * @param thresholdID int The threshold ID to be used to obtain the executed queries.
+     * @return List of DoerDBChange instances representing all the changes done to the local database in the given ID interval(w.r.t the thresholdID and Now).
      * @throws SQLException If any exception is thrown during the execution of MySQL query.
      * @throws InitializationFailureException If any exception is thrown during the initialization of DoerDatabase.
      */
-    private List<DoerDBChange> getLocalChanges(Date thresholdTimestamp) throws SQLException, InitializationFailureException {
-        List<BasicQuery> localChanges = this.getLocalChangesAsQueries(thresholdTimestamp);
+    private List<DoerDBChange> getLocalChanges(int thresholdID) throws SQLException, InitializationFailureException {
+        List<BasicQuery> localChanges = this.getLocalChangesAsQueries(thresholdID);
         return this.getChangesByQueries(DoerDBChange.SyncDirection.LOCAL_TO_REMOTE, localChanges);
     }
 
     /**
      * Used to obtain the set of changes done in remote database as a List of DoerDBChange instances.
-     * @param thresholdTimestamp Date The threshold timestamp to be used to obtain the executed queries.
-     * @return List of DoerDBChange instances representing all the changes done to the remote database in the given time interval(w.r.t the thresholdTimestamp and Now).
+     * @param thresholdID int The threshold ID to be used to obtain the executed queries.
+     * @return List of DoerDBChange instances representing all the changes done to the remote database in the given ID interval(w.r.t the thresholdID and Now).
      * @throws SQLException If any exception is thrown during the execution of MySQL query.
      * @throws InitializationFailureException If any exception is thrown during the initialization of DoerDatabase.
      */
-    private List<DoerDBChange> getRemoteChanges(Date thresholdTimestamp) throws SQLException, InitializationFailureException {
-        List<BasicQuery> remoteChanges = this.getRemoteChangesAsQueries(thresholdTimestamp);
+    private List<DoerDBChange> getRemoteChanges(int thresholdID) throws SQLException, InitializationFailureException {
+        List<BasicQuery> remoteChanges = this.getRemoteChangesAsQueries(thresholdID);
         return this.getChangesByQueries(DoerDBChange.SyncDirection.REMOTE_TO_LOCAL, remoteChanges);
     }
 
     /**
-     * Synchronizes changes between the local database and remote database after the given timestamp.
-     * @param thresholdTimestamp Date The threshold timestamp to be used to obtain the executed queries. Uses all the changes done after this timestamp.
+     * Synchronizes changes between the local database and remote database after the given ID.
+     * @param thresholdLocalID int The threshold ID to be used to obtain the executed queries. Uses all the changes done after this ID.
      * @throws SQLException If any exception is thrown during the execution of MySQL query.
      * @throws InitializationFailureException If any exception is thrown during the initialization of DoerDatabase.
+     * @throws SynchronizeException If the remote database is under another synchronization process at the moment.
      */
-    private void synchronizeChangesFrom(Date thresholdTimestamp) throws SQLException, InitializationFailureException {
-        List<DoerDBChange> changes = this.getLocalChanges(thresholdTimestamp);
-        changes.addAll(this.getRemoteChanges(thresholdTimestamp));
+    private void synchronizeChangesFrom(int thresholdLocalID, int thresholdRemoteID, boolean forceSyncLockRemove) throws SQLException, InitializationFailureException, SynchronizeException {
+        DoerDBSyncStatusTable remoteSyncStatusTable = this.doerDB.getRemoteDatabase().getSyncStatusTable();
+        boolean remoteSyncStatus = remoteSyncStatusTable.getSyncStatus();
+        if (remoteSyncStatus && !forceSyncLockRemove) {
+            throw new SynchronizeException(ExceptionCodes.STATUS_SYNCING, "The remote database is currently synchronizing. Please try again later.");
+        }
+        remoteSyncStatusTable.setSyncStatus(true);
+
+        List<DoerDBChange> changes = this.getLocalChanges(thresholdLocalID);
+        changes.addAll(this.getRemoteChanges(thresholdRemoteID));
 
         Collections.sort(changes);
 
@@ -181,21 +192,40 @@ public class DoerDBSynchronizer {
 
         /* Sets the timestamp of last query if there were changes. */
         if (changes.size() > 0) {
-            Date lastQueryTimestamp = changes.get(changes.size() - 1).getChangeTimestamp();
-            DoerDBSyncTable localSyncTable = this.doerDB.getLocalDatabase().getSyncTable();
-            localSyncTable.setSyncTime(lastQueryTimestamp);
+            DoerDBSyncDataTable localSyncTable = this.doerDB.getLocalDatabase().getSyncDataTable();
+
+            int lastLocalID = this.doerDB.getLocalDatabase().getMetaTable().getLastQueryID();
+            int lastRemoteID = this.doerDB.getRemoteDatabase().getMetaTable().getLastQueryID();
+
+            localSyncTable.setLastSyncIDs(lastLocalID, lastRemoteID);
         }
+
+        remoteSyncStatusTable.setSyncStatus(false);
     }
 
     /**
      * Synchronizes changes between the local database and remote database, for the changes after the last synchronization process.
+     * @param forceSyncLockRemove boolean true to force synchronization even if another device is synchronizing, false otherwise.
      * @throws SQLException If any exception is thrown during the execution of MySQL query.
      * @throws InitializationFailureException If any exception is thrown during the initialization of DoerDatabase.
+     * @throws SynchronizeException If the remote database is under another synchronization process at the moment(If and only if forceSyncLockRemove=false).
      */
-    public void synchronizeChanges() throws SQLException, InitializationFailureException {
-        DoerDBSyncTable localSyncTable = this.doerDB.getLocalDatabase().getSyncTable();
-        Date lastSyncTimestamp = localSyncTable.getLastSyncTime();
-        this.synchronizeChangesFrom(lastSyncTimestamp);
+    public void synchronizeChanges(boolean forceSyncLockRemove) throws SQLException, InitializationFailureException, SynchronizeException {
+        DoerDBSyncDataTable localSyncTable = this.doerDB.getLocalDatabase().getSyncDataTable();
+        int lastLocalID = localSyncTable.getLastLocalID();
+        int lastRemoteID = localSyncTable.getLastRemoteID();
+        this.synchronizeChangesFrom(lastLocalID, lastRemoteID, forceSyncLockRemove);
+    }
+
+    /**
+     * Synchronizes changes between the local database and remote database, for the changes after the last synchronization process.
+     * <b>Note: Would not proceed if the server is in another synchronizing process.</b>
+     * @throws SQLException If any exception is thrown during the execution of MySQL query.
+     * @throws InitializationFailureException If any exception is thrown during the initialization of DoerDatabase.
+     * @throws SynchronizeException If the remote database is under another synchronization process at the moment(If and only if forceSyncLockRemove=false).
+     */
+    public void synchronizeChanges() throws SQLException, InitializationFailureException, SynchronizeException {
+        this.synchronizeChanges(false);
     }
 
 }

@@ -2,7 +2,8 @@ package com.doerit.doerdb.util;
 
 import com.doerit.doerdb.db.MySQL;
 import com.doerit.doerdb.db.metadata.DoerDBMetaTable;
-import com.doerit.doerdb.db.metadata.DoerDBSyncTable;
+import com.doerit.doerdb.db.metadata.DoerDBSyncDataTable;
+import com.doerit.doerdb.db.metadata.DoerDBSyncStatusTable;
 import com.doerit.doerdb.db.templates.MySQLQueryTemplates;
 import com.doerit.doerdb.db.types.DatabaseType;
 import com.doerit.doerdb.exceptions.ExceptionCodes;
@@ -20,7 +21,8 @@ public class DatabaseValidator {
 
     public static boolean isUnmonitoredTableName(String tableName) {
         return tableName.equals(DoerDBMetaTable.TABLE_NAME) ||
-                tableName.equals(DoerDBSyncTable.TABLE_NAME);
+                tableName.equals(DoerDBSyncDataTable.TABLE_NAME) ||
+                tableName.equals(DoerDBSyncStatusTable.TABLE_NAME);
     }
 
     public static String getTriggerName(String tableName, String triggerType) {
@@ -45,12 +47,21 @@ public class DatabaseValidator {
         }
 
         if (databaseType == DatabaseType.LOCAL) {
-            String querySyncTable = MySQLQueryTemplates.QUERY_TABLE_EXISTS
+            String querySyncDataTable = MySQLQueryTemplates.QUERY_TABLE_EXISTS
                     .replace(MySQLQueryTemplates.PLACEHOLDER_DATABASE_NAME, databaseName)
-                    .replace(MySQLQueryTemplates.PLACEHOLDER_TABLE_NAME, DoerDBSyncTable.TABLE_NAME);
-            ResultSet resultsSyncTable = connection.createStatement().executeQuery(querySyncTable);
-            if (!resultsSyncTable.next()) {
-                throw new NotFoundException(ExceptionCodes.NOT_FOUND, "Sync table in the database: " + databaseName + " is not found.");
+                    .replace(MySQLQueryTemplates.PLACEHOLDER_TABLE_NAME, DoerDBSyncDataTable.TABLE_NAME);
+            ResultSet resultsSyncDataTable = connection.createStatement().executeQuery(querySyncDataTable);
+            if (!resultsSyncDataTable.next()) {
+                throw new NotFoundException(ExceptionCodes.NOT_FOUND, "Sync data table in the database: " + databaseName + " is not found.");
+            }
+        }
+        else if (databaseType == DatabaseType.REMOTE) {
+            String querySyncStatusTable = MySQLQueryTemplates.QUERY_TABLE_EXISTS
+                    .replace(MySQLQueryTemplates.PLACEHOLDER_DATABASE_NAME, databaseName)
+                    .replace(MySQLQueryTemplates.PLACEHOLDER_TABLE_NAME, DoerDBSyncStatusTable.TABLE_NAME);
+            ResultSet resultsSyncStatusTable = connection.createStatement().executeQuery(querySyncStatusTable);
+            if (!resultsSyncStatusTable.next()) {
+                throw new NotFoundException(ExceptionCodes.NOT_FOUND, "Sync status table in the database: " + databaseName + " is not found.");
             }
         }
 

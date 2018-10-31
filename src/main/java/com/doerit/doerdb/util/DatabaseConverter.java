@@ -5,7 +5,8 @@ import com.doerit.doerdb.DoerDB;
 import com.doerit.doerdb.db.MySQL;
 import com.doerit.doerdb.db.jdbc.JDBCConstants;
 import com.doerit.doerdb.db.metadata.DoerDBMetaTable;
-import com.doerit.doerdb.db.metadata.DoerDBSyncTable;
+import com.doerit.doerdb.db.metadata.DoerDBSyncDataTable;
+import com.doerit.doerdb.db.metadata.DoerDBSyncStatusTable;
 import com.doerit.doerdb.db.queries.InsertQuery;
 import com.doerit.doerdb.db.queries.UpdateQuery;
 import com.doerit.doerdb.exceptions.ExceptionCodes;
@@ -31,11 +32,26 @@ public class DatabaseConverter {
             "PRIMARY KEY (`" + DoerDBMetaTable.TABLE_COL_ID + "`)" +
             ") ENGINE=MyISAM AUTO_INCREMENT=4 DEFAULT CHARSET=utf32 COLLATE=utf32_bin";
 
-    private static final String QUERY_SYNC_TABLE_CREATE = "CREATE TABLE IF NOT EXISTS `" + DoerDBSyncTable.TABLE_NAME + "` (" +
-            " `" + DoerDBSyncTable.TABLE_COL_ID + "` int(11) NOT NULL AUTO_INCREMENT," +
-            " `" + DoerDBSyncTable.TABLE_COL_SYNCED_AT + "` timestamp NOT NULL," +
-            " PRIMARY KEY (`" + DoerDBSyncTable.TABLE_COL_ID + "`)" +
+    private static final String QUERY_SYNC_DATA_TABLE_CREATE = "CREATE TABLE IF NOT EXISTS `" + DoerDBSyncDataTable.TABLE_NAME + "` (" +
+            " `" + DoerDBSyncDataTable.TABLE_COL_ID + "` int(11) NOT NULL AUTO_INCREMENT," +
+            " `" + DoerDBSyncDataTable.TABLE_COL_LOCAL_LAST_ID + "` int(11) NOT NULL," +
+            " `" + DoerDBSyncDataTable.TABLE_COL_REMOTE_LAST_ID + "` int(11) NOT NULL," +
+            " PRIMARY KEY (`" + DoerDBSyncDataTable.TABLE_COL_ID + "`)" +
             ") ENGINE=MyISAM DEFAULT CHARSET=utf32 COLLATE=utf32_bin";
+
+    private static final String QUERY_SYNC_STATUS_TABLE_CREATE = "CREATE TABLE IF NOT EXISTS `" + DoerDBSyncStatusTable.TABLE_NAME + "` (" +
+            " `" + DoerDBSyncStatusTable.TABLE_COL_SYNC_STATUS + "` tinyint(1) NOT NULL DEFAULT '0'" +
+            ") ENGINE=MyISAM DEFAULT CHARSET=utf32 COLLATE=utf32_bin";
+
+    private static final String QUERY_SYNC_STATUS_TABLE_INSERT_STATUS = MySQL.SQL_INSERT_PREFIX + MySQL.SQL_SPACE +
+            MySQL.SQL_INTERNAL_QUOTES + DoerDBSyncStatusTable.TABLE_NAME + MySQL.SQL_INTERNAL_QUOTES + MySQL.SQL_SPACE +
+            MySQL.SQL_BRACKET_ROUND_OPEN +
+            MySQL.SQL_INTERNAL_QUOTES + DoerDBSyncStatusTable.TABLE_COL_SYNC_STATUS + MySQL.SQL_INTERNAL_QUOTES +
+            MySQL.SQL_BRACKET_ROUND_CLOSE + MySQL.SQL_SPACE +
+            MySQL.SQL_INSERT_VALUES + MySQL.SQL_SPACE +
+            MySQL.SQL_BRACKET_ROUND_OPEN +
+            "0" +
+            MySQL.SQL_BRACKET_ROUND_CLOSE;
 
     private static final String TRIGGER_JSON_PLACEHOLDER = "[REC_TYPE]";
 
@@ -76,14 +92,40 @@ public class DatabaseConverter {
         return resultMetaTable.next();
     }
 
-    private static boolean isSyncTableExisting(Connection connection) throws SQLException {
+    /**
+     * Checks for the existence of a sync data table in a database specified by a MySQL JDBC connection.
+     * @param connection MySQL JDBC Connection in which the existence of sync data table should be checked.
+     * @return boolean true if sync data table exists, false otherwise.
+     * @throws SQLException If any error occurs while querying the database.
+     */
+    private static boolean isSyncDataTableExisting(Connection connection) throws SQLException {
         Statement statement = connection.createStatement();
-        ResultSet resultSyncTable = statement.executeQuery(MySQL.SQL_SHOW_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_CONTENT_TABLES + MySQL.SQL_SPACE +
-                MySQL.SQL_LIKE_OPERATOR + MySQL.SQL_SPACE + MySQL.SQL_EXTERNAL_QUOTES + DoerDBSyncTable.TABLE_NAME + MySQL.SQL_EXTERNAL_QUOTES);
+        ResultSet resultSyncDataTable = statement.executeQuery(MySQL.SQL_SHOW_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_CONTENT_TABLES + MySQL.SQL_SPACE +
+                MySQL.SQL_LIKE_OPERATOR + MySQL.SQL_SPACE + MySQL.SQL_EXTERNAL_QUOTES + DoerDBSyncDataTable.TABLE_NAME + MySQL.SQL_EXTERNAL_QUOTES);
 
-        return resultSyncTable.next();
+        return resultSyncDataTable.next();
     }
 
+    /**
+     * Checks for the existence of a sync status table in a database specified by a MySQL JDBC connection.
+     * @param connection MySQL JDBC Connection in which the existence of sync status table should be checked.
+     * @return boolean true if sync status table exists, false otherwise.
+     * @throws SQLException If any error occurs while querying the database.
+     */
+    private static boolean isSyncStatusTableExisting(Connection connection) throws SQLException {
+        Statement statement = connection.createStatement();
+        ResultSet resultSyncStatusTable = statement.executeQuery(MySQL.SQL_SHOW_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_CONTENT_TABLES + MySQL.SQL_SPACE +
+                MySQL.SQL_LIKE_OPERATOR + MySQL.SQL_SPACE + MySQL.SQL_EXTERNAL_QUOTES + DoerDBSyncStatusTable.TABLE_NAME + MySQL.SQL_EXTERNAL_QUOTES);
+
+        return resultSyncStatusTable.next();
+    }
+
+    /**
+     * Generates triggers for the given database.
+     * @param connection Connection MySQL Connection to the database in which the triggers should be generated.
+     * @param dbName String The name of the database specified by the connection.
+     * @throws SQLException If any error occurs while querying the database.
+     */
     public void generateTriggers(Connection connection, String dbName) throws SQLException {
         String queryTableSet = MySQL.SQL_SELECT_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_CONTENT_TABLE_NAME + MySQL.SQL_SPACE +
                 MySQL.SQL_FROM_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_CONTENT_INFORMATION_SCHEMA_TABLES + MySQL.SQL_SPACE +
@@ -179,27 +221,31 @@ public class DatabaseConverter {
      */
     public void convertToDoerDB(boolean localOnly) throws SQLException, InvalidException {
         boolean localMetaTableExists = DatabaseConverter.isMetaTableExisting(this.localConnection);
-        boolean localSyncTableExists = DatabaseConverter.isSyncTableExisting(this.localConnection);
+        boolean localSyncDataTableExists = DatabaseConverter.isSyncDataTableExisting(this.localConnection);
         boolean remoteMetaTableExists = !localOnly && DatabaseConverter.isMetaTableExisting(this.remoteConnection);
+        boolean remoteSyncStatusTableExists = DatabaseConverter.isSyncStatusTableExisting(this.remoteConnection);
         if (localMetaTableExists) {
             throw new InvalidException(ExceptionCodes.ALREADY_FOUND, "A MetaTable already exists in the Local Database. Meta Table Name: " + DoerDBMetaTable.TABLE_NAME);
         }
-        else if (localSyncTableExists) {
-            throw new InvalidException(ExceptionCodes.ALREADY_FOUND, "A SyncTable already exists in the Local Database. Sync Table Name: " + DoerDBSyncTable.TABLE_NAME);
+        else if (localSyncDataTableExists) {
+            throw new InvalidException(ExceptionCodes.ALREADY_FOUND, "A SyncDataTable already exists in the Local Database. Sync Data Table Name: " + DoerDBSyncDataTable.TABLE_NAME);
         }
         else if (remoteMetaTableExists) {
             throw new InvalidException(ExceptionCodes.ALREADY_FOUND, "A MetaTable already exists in the Remote Database. Meta Table Name: " + DoerDBMetaTable.TABLE_NAME);
         }
+        else if (remoteSyncStatusTableExists) {
+            throw new InvalidException(ExceptionCodes.ALREADY_FOUND, "A SyncStatusTable already exists in the Remote Database. Sync Status Table Name: " + DoerDBSyncStatusTable.TABLE_NAME);
+        }
         else {
             /* Create the Table */
-            Statement localStatement = this.localConnection.createStatement();
-            localStatement.executeUpdate(DatabaseConverter.QUERY_META_TABLE_CREATE);
-            localStatement.executeUpdate(DatabaseConverter.QUERY_SYNC_TABLE_CREATE);
+            this.localConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_META_TABLE_CREATE);
+            this.localConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_SYNC_DATA_TABLE_CREATE);
             this.generateTriggers(this.localConnection, this.localDBCredentials.dbName);
 
             if (!localOnly) {
-                Statement remoteStatement = this.remoteConnection.createStatement();
-                remoteStatement.executeUpdate(DatabaseConverter.QUERY_META_TABLE_CREATE);
+                this.remoteConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_META_TABLE_CREATE);
+                this.remoteConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_SYNC_STATUS_TABLE_CREATE);
+                this.remoteConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_SYNC_STATUS_TABLE_INSERT_STATUS);
                 this.generateTriggers(this.remoteConnection, this.remoteDBCredentials.dbName);
             }
         }

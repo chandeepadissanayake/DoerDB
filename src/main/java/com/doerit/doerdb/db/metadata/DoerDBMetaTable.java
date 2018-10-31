@@ -30,6 +30,10 @@ public class DoerDBMetaTable {
 
     private final DoerDatabase doerDatabase;
 
+    /**
+     * Constructor for DoerDBMetaTable
+     * @param doerDatabase The DoerDatabase instance to which the DoerDBMetaTable belongs to.
+     */
     public DoerDBMetaTable(DoerDatabase doerDatabase) {
         this.doerDatabase = doerDatabase;
     }
@@ -42,7 +46,7 @@ public class DoerDBMetaTable {
      * @throws InitializationFailureException If DoerDB failed to initialize.
      */
     private List<Map<String, Object>> getRecordsInfoByQuery(String query) throws SQLException, InitializationFailureException {
-        ResultSet resultsQueryInfo = doerDatabase.executeQuery(query);
+        ResultSet resultsQueryInfo = this.doerDatabase.executeQuery(query);
 
         List<Map<String, Object>> recordsInfo = new ArrayList<>();
         while (resultsQueryInfo.next()) {
@@ -102,6 +106,26 @@ public class DoerDBMetaTable {
     }
 
     /**
+     * Used to obtain a List of HashMaps containing records' data by comparing the timestamp of the queries with the provided ID according to the comparator.
+     * @param comparator String The Comparator to be used in the MySQL query to compare the query ID with the given ID.
+     * @param thresholdID The threshold ID to be used for comparison(filtering) the queries.
+     * @return List of HashMaps of records' data.
+     * @throws SQLException                   If unexpected error occurs while querying the database.
+     * @throws InitializationFailureException If DoerDB failed to initialize.
+     */
+    private List<Map<String, Object>> getRecordsByID(String comparator, int thresholdID) throws SQLException, InitializationFailureException {
+        String query = MySQL.SQL_SELECT_CLAUSE + MySQL.SQL_SPACE + "*" + MySQL.SQL_SPACE + MySQL.SQL_FROM_CLAUSE + MySQL.SQL_SPACE +
+                MySQL.SQL_INTERNAL_QUOTES + TABLE_NAME + MySQL.SQL_INTERNAL_QUOTES;
+        if (thresholdID != -1) {
+            query += MySQL.SQL_SPACE + MySQL.SQL_WHERE_CLAUSE + MySQL.SQL_SPACE +
+                    MySQL.SQL_INTERNAL_QUOTES + DoerDBMetaTable.TABLE_COL_ID + MySQL.SQL_INTERNAL_QUOTES + comparator +
+                    MySQL.SQL_EXTERNAL_QUOTES + String.valueOf(thresholdID) + MySQL.SQL_EXTERNAL_QUOTES;
+        }
+
+        return this.getRecordsInfoByQuery(query);
+    }
+
+    /**
      * Used to obtain a List of HashMaps containing records' data by comparing the timestamp of the queries with the provided timestamp according to the comparator.
      * @param comparator String The Comparator to be used in the MySQL query to compare the query timestamp with the given timestamp.
      * @param thresholdTimestamp The threshold timestamp to be used for comparison(filtering) the queries.
@@ -124,14 +148,82 @@ public class DoerDBMetaTable {
     }
 
     /**
+     * Used to obtain the ID of the latest query recorded in the Meta Table.
+     * @return int ID of the latest query.
+     * @throws SQLException                   If unexpected error occurs while querying the database.
+     * @throws InitializationFailureException If DoerDB failed to initialize.
+     */
+    public int getLastQueryID() throws SQLException, InitializationFailureException {
+        String query = MySQL.SQL_SELECT_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_INTERNAL_QUOTES + DoerDBMetaTable.TABLE_COL_ID + MySQL.SQL_INTERNAL_QUOTES + MySQL.SQL_SPACE +
+                MySQL.SQL_FROM_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_INTERNAL_QUOTES + DoerDBMetaTable.TABLE_NAME + MySQL.SQL_INTERNAL_QUOTES + MySQL.SQL_SPACE +
+                MySQL.SQL_ORDER_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_BY_OPERATOR + MySQL.SQL_SPACE +
+                MySQL.SQL_INTERNAL_QUOTES + DoerDBMetaTable.TABLE_COL_ID + MySQL.SQL_INTERNAL_QUOTES + MySQL.SQL_SPACE +
+                MySQL.SQL_SORT_DESC + MySQL.SQL_SPACE +
+                MySQL.SQL_LIMIT_OPERATOR + MySQL.SQL_SPACE + "1";
+
+        ResultSet resultLastQuery = this.doerDatabase.executeQuery(query);
+        if (resultLastQuery.next()) {
+            return resultLastQuery.getInt(DoerDBMetaTable.TABLE_COL_ID);
+        }
+        else {
+            return -1;
+        }
+    }
+
+    /**
+     * Used to obtain the timestamp of the latest query recorded in the Meta Table.
+     * @return Date Timestamp of the latest query.
+     * @throws SQLException                   If unexpected error occurs while querying the database.
+     * @throws InitializationFailureException If DoerDB failed to initialize.
+     */
+    public Date getLastQueryTimestamp() throws SQLException, InitializationFailureException {
+        String query = MySQL.SQL_SELECT_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_INTERNAL_QUOTES + DoerDBMetaTable.TABLE_COL_QUERY_TIMESTAMP + MySQL.SQL_INTERNAL_QUOTES + MySQL.SQL_SPACE +
+                MySQL.SQL_FROM_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_INTERNAL_QUOTES + DoerDBMetaTable.TABLE_NAME + MySQL.SQL_INTERNAL_QUOTES + MySQL.SQL_SPACE +
+                MySQL.SQL_ORDER_CLAUSE + MySQL.SQL_SPACE + MySQL.SQL_BY_OPERATOR + MySQL.SQL_SPACE +
+                MySQL.SQL_INTERNAL_QUOTES + DoerDBMetaTable.TABLE_COL_QUERY_TIMESTAMP + MySQL.SQL_INTERNAL_QUOTES + MySQL.SQL_SPACE +
+                MySQL.SQL_SORT_DESC + MySQL.SQL_SPACE +
+                MySQL.SQL_LIMIT_OPERATOR + MySQL.SQL_SPACE + "1";
+
+        ResultSet resultLastQuery = this.doerDatabase.executeQuery(query);
+        if (resultLastQuery.next()) {
+            return MySQL.getFormattedTimestampDateSQL(resultLastQuery.getTimestamp(DoerDBMetaTable.TABLE_COL_QUERY_TIMESTAMP));
+        }
+        else {
+            return null;
+        }
+    }
+
+    /**
+     * Used to obtain a List of HashMaps containing data(records) of the queries executed <b>before</b> a given ID(lesser ID).
+     * @param thresholdID The threshold ID to be used for comparison(filtering) the queries.
+     * @return List of HashMaps of records' data.
+     * @throws SQLException                   If unexpected error occurs while querying the database.
+     * @throws InitializationFailureException If DoerDB failed to initialize.
+     */
+    public List<Map<String, Object>> getQueryRecordsInfoBeforeID(int thresholdID) throws SQLException, InitializationFailureException {
+        return this.getRecordsByID("<", thresholdID);
+    }
+
+    /**
      * Used to obtain a List of HashMaps containing data(records) of the queries executed <b>before</b> a given timestamp.
      * @param thresholdTimestamp The threshold timestamp to be used for comparison(filtering) the queries.
      * @return List of HashMaps of records' data.
      * @throws SQLException                   If unexpected error occurs while querying the database.
      * @throws InitializationFailureException If DoerDB failed to initialize.
      */
-    public List<Map<String, Object>> getQueryRecordsInfoBefore(Date thresholdTimestamp) throws SQLException, InitializationFailureException {
+    public List<Map<String, Object>> getQueryRecordsInfoBeforeTimestamp(Date thresholdTimestamp) throws SQLException, InitializationFailureException {
         return this.getRecordsByTimestamp("<", thresholdTimestamp);
+    }
+
+    /**
+     * Used to obtain a List of HashMaps containing data(records) of the queries executed <b>after</b> a given ID(higher ID).
+     * @param thresholdID The threshold ID to be used for comparison(filtering) the queries.
+     * @return List of HashMaps of records' data.
+     * @throws SQLException                   If unexpected error occurs while querying the database.
+     * @throws InitializationFailureException If DoerDB failed to initialize.
+     */
+    public List<Map<String, Object>> getQueryRecordsInfoAfterID(int thresholdID) throws SQLException, InitializationFailureException {
+        return this.getRecordsByID(">", thresholdID);
     }
 
     /**
@@ -141,7 +233,7 @@ public class DoerDBMetaTable {
      * @throws SQLException                   If unexpected error occurs while querying the database.
      * @throws InitializationFailureException If DoerDB failed to initialize.
      */
-    public List<Map<String, Object>> getQueryRecordsInfoAfter(Date thresholdTimestamp) throws SQLException, InitializationFailureException {
+    public List<Map<String, Object>> getQueryRecordsInfoAfterTimestamp(Date thresholdTimestamp) throws SQLException, InitializationFailureException {
         return this.getRecordsByTimestamp(">", thresholdTimestamp);
     }
 
