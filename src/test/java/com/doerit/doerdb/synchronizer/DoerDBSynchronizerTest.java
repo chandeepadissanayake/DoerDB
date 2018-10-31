@@ -5,7 +5,6 @@ import com.doerit.doerdb.DoerDB;
 import com.doerit.doerdb.exceptions.InitializationFailureException;
 import com.doerit.doerdb.exceptions.NotFoundException;
 import com.doerit.doerdb.exceptions.SynchronizeException;
-import com.doerit.doerdb.synchronizer.mappers.DatabaseMapper;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -17,8 +16,8 @@ public class DoerDBSynchronizerTest {
 
     @Before
     public void setUp() throws Exception {
-        DBCredentialWrapper credentialsLocal = new DBCredentialWrapper("localhost", 3306, "db_doerdb_local", "root", "");
-        DBCredentialWrapper credentialsRemote = new DBCredentialWrapper("localhost", 3306, "db_doerdb_remote", "root", "");
+        DBCredentialWrapper credentialsLocal = new DBCredentialWrapper("localhost", 3306, "effect_sap_db_client", "root", "");
+        DBCredentialWrapper credentialsRemote = new DBCredentialWrapper("localhost", 3306, "effect_sap_db_server", "root", "");
 
         try {
             this.doerDB = new DoerDB(credentialsLocal, credentialsRemote);
@@ -55,8 +54,8 @@ public class DoerDBSynchronizerTest {
         try {
             DoerDBSynchronizer doerDBSynchronizer = new DoerDBSynchronizer(this.doerDB);
 
-            DatabaseMapper databaseMapper = doerDBSynchronizer.getDoerDBMapper();
-            databaseMapper.getTableMapperByLocalTable("tbl_test").getColumnMapperByLocalColumn("full_name").setRemoteColumnName("total_name");
+//            DatabaseMapper databaseMapper = doerDBSynchronizer.getDoerDBMapper();
+//            databaseMapper.getTableMapperByLocalTable("tbl_test").getColumnMapperByLocalColumn("full_name").setRemoteColumnName("total_name");
 
             doerDBSynchronizer.synchronizeChanges();
         }

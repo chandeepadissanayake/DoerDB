@@ -9,6 +9,15 @@ public class CLIOptions {
     private static boolean BOOL_OPTION_HAS_NO_FLAGS = false;
 
     public static String NAME_OPTION_CONVERT_DB = "convert";
+    public static String NAME_OPTION_CONVERT_DB_SERVER = "server";
+    public static String NAME_OPTION_CONVERT_DB_CLIENT = "client";
+
+    public static String NAME_OPTION_COMMON_DB_HOST = "dbHost";
+    public static String NAME_OPTION_COMMON_DB_PORT = "dbPort";
+    public static String NAME_OPTION_COMMON_DB_DB_NAME = "dbName";
+    public static String NAME_OPTION_COMMON_DB_USERNAME = "dbUsername";
+    public static String NAME_OPTION_COMMON_DB_PASSWORD = "dbPassword";
+
     public static String NAME_OPTION_LOCAL_DB_HOST = "localDBHost";
     public static String NAME_OPTION_LOCAL_DB_PORT = "localDBPort";
     public static String NAME_OPTION_LOCAL_DB_DB_NAME = "localDBName";
@@ -21,6 +30,15 @@ public class CLIOptions {
     public static String NAME_OPTION_REMOTE_DB_PASSWORD = "remoteDBPassword";
 
     public static Option OPTION_CONVERT_DB = new Option(NAME_OPTION_CONVERT_DB, NAME_OPTION_CONVERT_DB, BOOL_OPTION_HAS_NO_FLAGS,"Convert a pair of databases into a DoerDB.");
+    public static Option OPTION_CONVERT_DB_SERVER = new Option(NAME_OPTION_CONVERT_DB_SERVER, NAME_OPTION_CONVERT_DB_SERVER, BOOL_OPTION_HAS_NO_FLAGS,"Flag for marking that the provided database should be converted to server.");
+    public static Option OPTION_CONVERT_DB_CLIENT = new Option(NAME_OPTION_CONVERT_DB_CLIENT, NAME_OPTION_CONVERT_DB_CLIENT, BOOL_OPTION_HAS_NO_FLAGS,"Flag for marking that the provided database should be converted to client.");
+
+    public static Option OPTION_COMMON_DB_HOST = new Option(NAME_OPTION_COMMON_DB_HOST, NAME_OPTION_COMMON_DB_HOST, BOOL_OPTION_HAS_FLAGS,"Provides the host for the database.");
+    public static Option OPTION_COMMON_DB_PORT = new Option(NAME_OPTION_COMMON_DB_PORT, NAME_OPTION_COMMON_DB_PORT, BOOL_OPTION_HAS_FLAGS,"Provides the port for the database.");
+    public static Option OPTION_COMMON_DB_DB_NAME = new Option(NAME_OPTION_COMMON_DB_DB_NAME, NAME_OPTION_COMMON_DB_DB_NAME, BOOL_OPTION_HAS_FLAGS,"Provides the database name for the database.");
+    public static Option OPTION_COMMON_DB_USERNAME = new Option(NAME_OPTION_COMMON_DB_USERNAME, NAME_OPTION_COMMON_DB_USERNAME, BOOL_OPTION_HAS_FLAGS,"Provides the username of the user for the database.");
+    public static Option OPTION_COMMON_DB_PASSWORD = new Option(NAME_OPTION_COMMON_DB_PASSWORD, NAME_OPTION_COMMON_DB_PASSWORD, BOOL_OPTION_HAS_FLAGS,"Provides the password of the user for the database.");
+
     public static Option OPTION_LOCAL_DB_HOST = new Option(NAME_OPTION_LOCAL_DB_HOST, NAME_OPTION_LOCAL_DB_HOST, BOOL_OPTION_HAS_FLAGS,"Provides the host for the local database.");
     public static Option OPTION_LOCAL_DB_PORT = new Option(NAME_OPTION_LOCAL_DB_PORT, NAME_OPTION_LOCAL_DB_PORT, BOOL_OPTION_HAS_FLAGS,"Provides the port for the local database.");
     public static Option OPTION_LOCAL_DB_DB_NAME = new Option(NAME_OPTION_LOCAL_DB_DB_NAME, NAME_OPTION_LOCAL_DB_DB_NAME, BOOL_OPTION_HAS_FLAGS,"Provides the database name for the local database.");
@@ -36,6 +54,14 @@ public class CLIOptions {
     public CLIOptions() {
         cliOptions = new Options();
         cliOptions.addOption(OPTION_CONVERT_DB);
+        cliOptions.addOption(OPTION_CONVERT_DB_SERVER);
+        cliOptions.addOption(OPTION_CONVERT_DB_CLIENT);
+
+        cliOptions.addOption(OPTION_COMMON_DB_HOST);
+        cliOptions.addOption(OPTION_COMMON_DB_PORT);
+        cliOptions.addOption(OPTION_COMMON_DB_DB_NAME);
+        cliOptions.addOption(OPTION_COMMON_DB_USERNAME);
+        cliOptions.addOption(OPTION_COMMON_DB_PASSWORD);
 
         cliOptions.addOption(OPTION_LOCAL_DB_HOST);
         cliOptions.addOption(OPTION_LOCAL_DB_PORT);

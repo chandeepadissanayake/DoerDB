@@ -28,19 +28,39 @@ public class CLIProcessor {
     }
 
     private void processConvertDB() {
-        List<String> shouldHaveOptionsNames = new ArrayList<String>() {{
-            add(CLIOptions.NAME_OPTION_LOCAL_DB_HOST);
-            add(CLIOptions.NAME_OPTION_LOCAL_DB_PORT);
-            add(CLIOptions.NAME_OPTION_LOCAL_DB_DB_NAME);
-            add(CLIOptions.NAME_OPTION_LOCAL_DB_USERNAME);
-            add(CLIOptions.NAME_OPTION_LOCAL_DB_PASSWORD);
+        boolean hasClientOption = this.cliArgs.hasOption(CLIOptions.NAME_OPTION_CONVERT_DB_CLIENT);
+        boolean hasServerOption = this.cliArgs.hasOption(CLIOptions.NAME_OPTION_CONVERT_DB_SERVER);
 
-            add(CLIOptions.NAME_OPTION_REMOTE_DB_HOST);
-            add(CLIOptions.NAME_OPTION_REMOTE_DB_PORT);
-            add(CLIOptions.NAME_OPTION_REMOTE_DB_DB_NAME);
-            add(CLIOptions.NAME_OPTION_REMOTE_DB_USERNAME);
-            add(CLIOptions.NAME_OPTION_REMOTE_DB_PASSWORD);
-        }};
+        if (hasClientOption && hasServerOption) {
+            System.err.println("Both Server and Client flags cannot be set on a single database.");
+            return;
+        }
+
+        List<String> shouldHaveOptionsNames;
+        if (hasClientOption || hasServerOption) {
+            shouldHaveOptionsNames = new ArrayList<String>() {{
+                add(CLIOptions.NAME_OPTION_COMMON_DB_HOST);
+                add(CLIOptions.NAME_OPTION_COMMON_DB_PORT);
+                add(CLIOptions.NAME_OPTION_COMMON_DB_DB_NAME);
+                add(CLIOptions.NAME_OPTION_COMMON_DB_USERNAME);
+                add(CLIOptions.NAME_OPTION_COMMON_DB_PASSWORD);
+            }};
+        }
+        else {
+            shouldHaveOptionsNames = new ArrayList<String>() {{
+                add(CLIOptions.NAME_OPTION_LOCAL_DB_HOST);
+                add(CLIOptions.NAME_OPTION_LOCAL_DB_PORT);
+                add(CLIOptions.NAME_OPTION_LOCAL_DB_DB_NAME);
+                add(CLIOptions.NAME_OPTION_LOCAL_DB_USERNAME);
+                add(CLIOptions.NAME_OPTION_LOCAL_DB_PASSWORD);
+
+                add(CLIOptions.NAME_OPTION_REMOTE_DB_HOST);
+                add(CLIOptions.NAME_OPTION_REMOTE_DB_PORT);
+                add(CLIOptions.NAME_OPTION_REMOTE_DB_DB_NAME);
+                add(CLIOptions.NAME_OPTION_REMOTE_DB_USERNAME);
+                add(CLIOptions.NAME_OPTION_REMOTE_DB_PASSWORD);
+            }};
+        }
 
         for (String shouldHaveOptionName : shouldHaveOptionsNames) {
             if (!this.cliArgs.hasOption(shouldHaveOptionName)) {
@@ -50,20 +70,46 @@ public class CLIProcessor {
         }
 
         try {
-            DBCredentialWrapper localDBCredentials = new DBCredentialWrapper(
-                    this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_HOST),
-                    Integer.parseInt(this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_PORT)),
-                    this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_DB_NAME),
-                    this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_USERNAME),
-                    this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_PASSWORD)
-            );
-            DBCredentialWrapper remoteDBCredentials = new DBCredentialWrapper(
-                    this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_HOST),
-                    Integer.parseInt(this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_PORT)),
-                    this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_DB_NAME),
-                    this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_USERNAME),
-                    this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_PASSWORD)
-            );
+            DBCredentialWrapper localDBCredentials = null;
+            DBCredentialWrapper remoteDBCredentials = null;
+
+            if (!hasServerOption && !hasClientOption) {
+                localDBCredentials = new DBCredentialWrapper(
+                        this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_HOST),
+                        Integer.parseInt(this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_PORT)),
+                        this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_DB_NAME),
+                        this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_USERNAME),
+                        this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_LOCAL_DB_PASSWORD)
+                );
+
+                remoteDBCredentials = new DBCredentialWrapper(
+                        this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_HOST),
+                        Integer.parseInt(this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_PORT)),
+                        this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_DB_NAME),
+                        this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_USERNAME),
+                        this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_REMOTE_DB_PASSWORD)
+                );
+            }
+            else {
+                if (!hasServerOption) {
+                    localDBCredentials = new DBCredentialWrapper(
+                            this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_HOST),
+                            Integer.parseInt(this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_PORT)),
+                            this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_DB_NAME),
+                            this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_USERNAME),
+                            this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_PASSWORD)
+                    );
+                }
+                else {
+                    remoteDBCredentials = new DBCredentialWrapper(
+                            this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_HOST),
+                            Integer.parseInt(this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_PORT)),
+                            this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_DB_NAME),
+                            this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_USERNAME),
+                            this.cliArgs.getOptionValue(CLIOptions.NAME_OPTION_COMMON_DB_PASSWORD)
+                    );
+                }
+            }
 
             DatabaseConverter dbConverter = new DatabaseConverter(localDBCredentials, remoteDBCredentials);
             dbConverter.convertToDoerDB();

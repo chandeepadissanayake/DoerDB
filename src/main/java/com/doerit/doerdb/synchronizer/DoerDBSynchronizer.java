@@ -228,4 +228,14 @@ public class DoerDBSynchronizer {
         this.synchronizeChanges(false);
     }
 
+    /**
+     * Used to check whether the Remote database is currently in a synchronization process.
+     * @return boolean true if remote database is synchronizing, false otherwise.
+     * @throws SQLException If any exception is thrown during the execution of MySQL query.
+     * @throws InitializationFailureException If any exception is thrown during the initialization of DoerDatabase.
+     */
+    public boolean isSynchronizing() throws SQLException, InitializationFailureException {
+        return this.doerDB.getRemoteDatabase().getSyncStatusTable().getSyncStatus();
+    }
+
 }

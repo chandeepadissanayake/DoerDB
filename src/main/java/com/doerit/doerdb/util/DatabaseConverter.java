@@ -71,11 +71,21 @@ public class DatabaseConverter {
         this.localDBCredentials = localDBCredentials;
         this.remoteDBCredentials = remoteDBCredentials;
 
-        String localFQURL = JDBCConstants.PROTOCOL + "://" + localDBCredentials.hostURL + ":" + String.valueOf(localDBCredentials.hostPort) + "/" + localDBCredentials.dbName + "?" + JDBCConstants.CONNECTION_USER_ARG + "=" + localDBCredentials.hostUsername + "&" + JDBCConstants.CONNECTION_PASSWORD_ARG + "=" + localDBCredentials.hostPassword + "&" + JDBCConstants.CONNECTION_USE_SSL_ARG + "=false&allowMultiQueries=true";
-        this.localConnection = DriverManager.getConnection(localFQURL);
+        if (localDBCredentials != null) {
+            String localFQURL = JDBCConstants.PROTOCOL + "://" + localDBCredentials.hostURL + ":" + String.valueOf(localDBCredentials.hostPort) + "/" + localDBCredentials.dbName + "?" + JDBCConstants.CONNECTION_USER_ARG + "=" + localDBCredentials.hostUsername + "&" + JDBCConstants.CONNECTION_PASSWORD_ARG + "=" + localDBCredentials.hostPassword + "&" + JDBCConstants.CONNECTION_USE_SSL_ARG + "=false&allowMultiQueries=true";
+            this.localConnection = DriverManager.getConnection(localFQURL);
+        }
+        else {
+            this.localConnection = null;
+        }
 
-        String remoteFQURL = JDBCConstants.PROTOCOL + "://" + remoteDBCredentials.hostURL + ":" + String.valueOf(remoteDBCredentials.hostPort) + "/" + remoteDBCredentials.dbName + "?" + JDBCConstants.CONNECTION_USER_ARG + "=" + remoteDBCredentials.hostUsername + "&" + JDBCConstants.CONNECTION_PASSWORD_ARG + "=" + remoteDBCredentials.hostPassword + "&" + JDBCConstants.CONNECTION_USE_SSL_ARG + "=false&allowMultiQueries=true";
-        this.remoteConnection = DriverManager.getConnection(remoteFQURL);
+        if (remoteDBCredentials != null) {
+            String remoteFQURL = JDBCConstants.PROTOCOL + "://" + remoteDBCredentials.hostURL + ":" + String.valueOf(remoteDBCredentials.hostPort) + "/" + remoteDBCredentials.dbName + "?" + JDBCConstants.CONNECTION_USER_ARG + "=" + remoteDBCredentials.hostUsername + "&" + JDBCConstants.CONNECTION_PASSWORD_ARG + "=" + remoteDBCredentials.hostPassword + "&" + JDBCConstants.CONNECTION_USE_SSL_ARG + "=false&allowMultiQueries=true";
+            this.remoteConnection = DriverManager.getConnection(remoteFQURL);
+        }
+        else {
+            this.remoteConnection = null;
+        }
     }
 
     /**
@@ -215,15 +225,17 @@ public class DatabaseConverter {
      * Converts the given pair of local and remote databases into DoerDatabases.
      * Creates a meta table in both databases.
      * Generates triggers required for recording queries on meta tables.
-     * @param localOnly true if only the local Database is required to be transformed, false otherwise.
      * @throws SQLException If any error occurs while querying the database.
      * @throws InvalidException If meta table is currently found in any of the databases.
      */
-    public void convertToDoerDB(boolean localOnly) throws SQLException, InvalidException {
-        boolean localMetaTableExists = DatabaseConverter.isMetaTableExisting(this.localConnection);
-        boolean localSyncDataTableExists = DatabaseConverter.isSyncDataTableExisting(this.localConnection);
-        boolean remoteMetaTableExists = !localOnly && DatabaseConverter.isMetaTableExisting(this.remoteConnection);
-        boolean remoteSyncStatusTableExists = DatabaseConverter.isSyncStatusTableExisting(this.remoteConnection);
+    public void convertToDoerDB() throws SQLException, InvalidException {
+        boolean localOnly = this.localConnection != null && this.remoteConnection == null;
+        boolean remoteOnly = this.remoteConnection != null && this.localConnection == null;
+
+        boolean localMetaTableExists = this.localConnection != null && DatabaseConverter.isMetaTableExisting(this.localConnection);
+        boolean localSyncDataTableExists = this.localConnection != null && DatabaseConverter.isSyncDataTableExisting(this.localConnection);
+        boolean remoteMetaTableExists = this.remoteConnection != null && DatabaseConverter.isMetaTableExisting(this.remoteConnection);
+        boolean remoteSyncStatusTableExists = this.remoteConnection != null && DatabaseConverter.isSyncStatusTableExisting(this.remoteConnection);
         if (localMetaTableExists) {
             throw new InvalidException(ExceptionCodes.ALREADY_FOUND, "A MetaTable already exists in the Local Database. Meta Table Name: " + DoerDBMetaTable.TABLE_NAME);
         }
@@ -237,30 +249,34 @@ public class DatabaseConverter {
             throw new InvalidException(ExceptionCodes.ALREADY_FOUND, "A SyncStatusTable already exists in the Remote Database. Sync Status Table Name: " + DoerDBSyncStatusTable.TABLE_NAME);
         }
         else {
-            /* Create the Table */
-            this.localConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_META_TABLE_CREATE);
-            this.localConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_SYNC_DATA_TABLE_CREATE);
-            this.generateTriggers(this.localConnection, this.localDBCredentials.dbName);
+            boolean shouldRunLocal = true;
+            boolean shouldRunRemote = true;
 
-            if (!localOnly) {
+            if (!localOnly && remoteOnly) {
+                shouldRunLocal = false;
+            }
+
+            if (!remoteOnly && localOnly) {
+                shouldRunRemote = false;
+            }
+
+            if (!remoteOnly && !localOnly) {
+                throw new InvalidException(ExceptionCodes.INVALID_OPERATION, "There should be a database connection to convert. Please provide the credentials.");
+            }
+
+            if (shouldRunLocal) {
+                this.localConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_META_TABLE_CREATE);
+                this.localConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_SYNC_DATA_TABLE_CREATE);
+                this.generateTriggers(this.localConnection, this.localDBCredentials.dbName);
+            }
+
+            if (shouldRunRemote) {
                 this.remoteConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_META_TABLE_CREATE);
                 this.remoteConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_SYNC_STATUS_TABLE_CREATE);
                 this.remoteConnection.createStatement().executeUpdate(DatabaseConverter.QUERY_SYNC_STATUS_TABLE_INSERT_STATUS);
                 this.generateTriggers(this.remoteConnection, this.remoteDBCredentials.dbName);
             }
         }
-    }
-
-    /**
-     * Converts the given pair of local and remote databases into DoerDatabases.
-     * Creates a meta table in both databases.
-     * Generates triggers required for recording queries on meta tables.
-     * Always converts both databases(local and remote) into DoerDatabases.
-     * @throws SQLException If any error occurs while querying the database.
-     * @throws InvalidException If meta table is currently found in any of the databases.
-     */
-    public void convertToDoerDB() throws SQLException, InvalidException {
-        this.convertToDoerDB(false);
     }
 
     /**
